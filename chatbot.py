@@ -34,7 +34,7 @@ def main():
 
     # Sugerencias de preguntas
     st.markdown("### Preguntas Sugeridas")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button("¿Cuál es la capital de Francia?"):
             st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
@@ -44,6 +44,9 @@ def main():
     with col3:
         if st.button("¿Quién te creó?"):
             st.session_state["user_input"] = "¿Quién te creó?"
+    with col4:
+        if st.button("Programa Python"):
+            st.session_state["user_input"] = "Programa en python la suma de 2 números"
 
     # Entrada de usuario
     user_input = st.text_input("Escribe tu pregunta", key="user_input")
