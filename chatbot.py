@@ -17,7 +17,7 @@ def main():
 
     # Configuración del chatbot
     bot_name = "ChatBot"
-    bot_prompt = f"Eres una IA desarrollada por David Cabrero y te llamas {bot_name}. Respondes y haces lo que te pida el usuario, incluyendo mostrar gráficos si así lo solicita."
+    bot_prompt = f"Eres una IA desarrollada por David Cabrero y te llamas {bot_name}. Respondes y haces lo que te pida el usuario."
 
     # Historial de chat
     if "chat_history" not in st.session_state:
