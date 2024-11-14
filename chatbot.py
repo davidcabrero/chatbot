@@ -39,7 +39,7 @@ def main():
         if st.button("¿Cuál es la capital de Francia?"):
             st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
     with col2:
-        if st.button("Muestra un gráfico"):
+        if st.button("Muestra un gráfico de ejemplo"):
             st.session_state["user_input"] = "Muestra un gráfico con datos [A, B, C] [10, 20, 15]"
     with col3:
         if st.button("¿Quién te creó?"):
@@ -93,11 +93,6 @@ def main():
                         st.write("Error: Asegúrate de que las categorías y valores coincidan en número y formato.")
                 else:
                     st.write("Error: Por favor, ingresa los datos en el formato [categoría1, categoría2, ...] [valor1, valor2, ...].")
-            
-            # Detectar si el usuario pidió código
-            elif "programa" in user_input.lower() or "código" in user_input.lower():
-                st.markdown("### Código Generado")
-                st.code(respuesta, language='python')  # Muestra la respuesta en formato de código
 
     # Mostrar historial de chat como burbujas de conversación
     st.markdown("### Chat")
