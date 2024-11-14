@@ -46,7 +46,7 @@ def main():
             st.session_state["user_input"] = "¿Quién te creó?"
     with col3:
         if st.button("¿Puedes escribir un programa en Python para sumar dos números?"):
-            st.session_state["user_input"] = "Escribe un programa en Python para sumar dos números."
+            st.session_state["user_input"] = "programa en Python"
 
     # Entrada de usuario
     user_input = st.text_input("Escribe tu pregunta", key="user_input")
