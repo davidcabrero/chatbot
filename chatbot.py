@@ -11,7 +11,7 @@ import re
 llm = OllamaLLM(model="llama3.2:1b", temperature=0.2)
 
 def main():
-    # Título y Descripción de la Aplicación
+    # Configurar la aplicación de Streamlit
     st.set_page_config(page_title="ChatBot", layout="wide")
     st.image("logo.png", width=150)
 
@@ -44,9 +44,6 @@ def main():
     with col3:
         if st.button("¿Quién te creó?"):
             st.session_state["user_input"] = "¿Quién te creó?"
-    with col3:
-        if st.button("Programa en python"):
-            st.session_state["user_input"] = "programa en Python para sumar dos números."
 
     # Entrada de usuario
     user_input = st.text_input("Escribe tu pregunta", key="user_input")
@@ -94,13 +91,15 @@ def main():
                 else:
                     st.write("Error: Por favor, ingresa los datos en el formato [categoría1, categoría2, ...] [valor1, valor2, ...].")
 
-    # Mostrar historial de chat como burbujas de conversación
+    # Mostrar historial de chat en burbujas de conversación diferenciando Usuario y ChatBot
     st.markdown("### Chat")
     for mensaje in st.session_state["chat_history"]:
         if isinstance(mensaje, HumanMessage):
-            st.markdown(f"**Usuario**: {mensaje.content}")
+            with st.chat_message("Usuario"):
+                st.write(mensaje.content)
         elif isinstance(mensaje, AIMessage):
-            st.markdown(f"**{bot_name}**: {mensaje.content}")
+            with st.chat_message(bot_name):
+                st.write(mensaje.content)
 
 if __name__ == "__main__":
     main()
