@@ -1,3 +1,6 @@
 ollama
 langchain-ollama
 streamlit
+matplot
+pandas
+re
