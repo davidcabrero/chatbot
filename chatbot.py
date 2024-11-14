@@ -39,7 +39,7 @@ def main():
         if st.button("¿Cuál es la capital de Francia?"):
             st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
     with col2:
-        if st.button("Muestra un gráfico de ejemplo"):
+        if st.button("Muestra un gráfico"):
             st.session_state["user_input"] = "Muestra un gráfico con datos [A, B, C] [10, 20, 15]"
     with col3:
         if st.button("¿Quién te creó?"):
