@@ -44,6 +44,9 @@ def main():
     with col3:
         if st.button("¿Quién te creó?"):
             st.session_state["user_input"] = "¿Quién te creó?"
+    with col3:
+        if st.button("¿Puedes escribir un programa en Python para sumar dos números?"):
+            st.session_state["user_input"] = "Escribe un programa en Python para sumar dos números."
 
     # Entrada de usuario
     user_input = st.text_input("Escribe tu pregunta", key="user_input")
@@ -90,6 +93,11 @@ def main():
                         st.write("Error: Asegúrate de que las categorías y valores coincidan en número y formato.")
                 else:
                     st.write("Error: Por favor, ingresa los datos en el formato [categoría1, categoría2, ...] [valor1, valor2, ...].")
+            
+            # Detectar si el usuario pidió código
+            elif "programa" in user_input.lower() or "código" in user_input.lower():
+                st.markdown("### Código Generado")
+                st.code(respuesta, language='python')  # Muestra la respuesta en formato de código
 
     # Mostrar historial de chat como burbujas de conversación
     st.markdown("### Chat")
