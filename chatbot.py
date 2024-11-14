@@ -45,8 +45,8 @@ def main():
         if st.button("¿Quién te creó?"):
             st.session_state["user_input"] = "¿Quién te creó?"
     with col3:
-        if st.button("¿Puedes escribir un programa en Python para sumar dos números?"):
-            st.session_state["user_input"] = "programa en Python"
+        if st.button("Programa en python"):
+            st.session_state["user_input"] = "programa en Python para sumar dos números."
 
     # Entrada de usuario
     user_input = st.text_input("Escribe tu pregunta", key="user_input")
