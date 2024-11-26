@@ -6,9 +6,18 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
+import fitz  # PyMuPDF
 
 # Configuración del modelo de lenguaje
 llm = OllamaLLM(model="llama3.2:1b", temperature=0.2)
+
+# Función para extraer texto de un PDF usando PyMuPDF
+def extract_pdf_text(pdf_file):
+    doc = fitz.open(pdf_file)
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
 
 def main():
     # Configurar la aplicación de Streamlit
@@ -22,6 +31,10 @@ def main():
     # Historial de chat
     if "chat_history" not in st.session_state:
         st.session_state["chat_history"] = []
+    
+    # Variable para almacenar el contenido del PDF
+    if "pdf_text" not in st.session_state:
+        st.session_state["pdf_text"] = ""
 
     # Prompt template
     prompt_template = ChatPromptTemplate.from_messages([
@@ -48,6 +61,14 @@ def main():
         if st.button("Programa Python"):
             st.session_state["user_input"] = "Programa en python la suma de 2 números"
 
+    # Subir PDF
+    uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf")
+
+    if uploaded_pdf is not None:
+        # Extraer el texto del PDF
+        st.session_state["pdf_text"] = extract_pdf_text(uploaded_pdf)
+        st.write("PDF cargado con éxito. Puedes hacer preguntas sobre su contenido.")
+
     # Entrada de usuario
     user_input = st.text_input("Escribe tu pregunta", key="user_input")
 
@@ -63,6 +84,10 @@ def main():
         if user_input.lower() == "adios":
             st.stop()
         else:
+            # Si se ha subido un PDF, incluir el contenido del PDF en el prompt
+            if st.session_state["pdf_text"]:
+                user_input = f"Texto del PDF: {st.session_state['pdf_text']}\nPregunta: {user_input}"
+
             # Procesar la solicitud del usuario
             respuesta = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
             
