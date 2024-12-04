@@ -1,3 +1,4 @@
+import os
 import ollama
 from langchain_ollama import OllamaLLM
 from langchain_core.messages import HumanMessage, AIMessage
@@ -7,13 +8,27 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import re
 import fitz  # PyMuPDF
+from PIL import Image
+import tempfile
 
-# Configuración del modelo de lenguaje
-llm = OllamaLLM(model="llama3.2:1b", temperature=0.2)
+# Configuración de los modelos de lenguaje
+llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
+
+# Función para convertir una imagen a base64
+def consultaImagen(image_path, user_input):
+    response = ollama.chat(
+        model='llava',
+        messages=[{
+            'role': 'user',
+            'content': 'qué hay en la imagen?',
+            'images': [image_path]
+        }]
+    )
+    return response
 
 # Función para extraer texto de un PDF usando PyMuPDF
-def extract_pdf_text(pdf_file):
-    doc = fitz.open(pdf_file)
+def extract_pdf_text(pdf_file_path):
+    doc = fitz.open(pdf_file_path)
     text = ""
     for page in doc:
         text += page.get_text()
@@ -32,18 +47,18 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state["chat_history"] = []
     
-    # Variable para almacenar el contenido del PDF
+    # Variables para almacenar contenido
     if "pdf_text" not in st.session_state:
         st.session_state["pdf_text"] = ""
 
     # Prompt template
-    prompt_template = ChatPromptTemplate.from_messages([
+    prompt_template = ChatPromptTemplate.from_messages([ 
         ("system", bot_prompt),
         MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{user_input}")
     ])
 
-    cadena = prompt_template | llm
+    cadena = prompt_template | llm_text
 
     # Sugerencias de preguntas
     st.markdown("### Preguntas Sugeridas")
@@ -61,13 +76,31 @@ def main():
         if st.button("Programa Python"):
             st.session_state["user_input"] = "Programa en python la suma de 2 números"
 
-    # Subir PDF
-    uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf")
+    # Subir PDF o imagen
+    st.markdown("### Subir Archivos")
+    col1, col2 = st.columns(2)
+    with col1:
+        uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf")
+    with col2:
+        uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"])
 
     if uploaded_pdf is not None:
+        # Guardar el archivo PDF temporalmente en el disco
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+            tmp_file.write(uploaded_pdf.read())
+            pdf_file_path = tmp_file.name  # Ruta completa del archivo temporal
+
         # Extraer el texto del PDF
-        st.session_state["pdf_text"] = extract_pdf_text(uploaded_pdf)
+        st.session_state["pdf_text"] = extract_pdf_text(pdf_file_path)
         st.write("PDF cargado con éxito. Puedes hacer preguntas sobre su contenido.")
+
+    if uploaded_image is not None:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(uploaded_image.read())
+            image_file_path = tmp_file.name  # Ruta completa del archivo temporal
+        # Guardar la imagen subida
+        st.session_state["uploaded_image"] = Image.open(image_file_path)
+        st.write("Imagen cargada con éxito. Puedes hacer preguntas sobre ella.")
 
     # Entrada de usuario
     user_input = st.text_input("Escribe tu pregunta", key="user_input")
@@ -84,13 +117,24 @@ def main():
         if user_input.lower() == "adios":
             st.stop()
         else:
-            # Si se ha subido un PDF, incluir el contenido del PDF en el prompt
-            if st.session_state["pdf_text"]:
-                user_input = f"Texto del PDF: {st.session_state['pdf_text']}\nPregunta: {user_input}"
+            respuesta = ""
+            if "uploaded_image" in st.session_state and 'image_file_path' in locals():
+                # Procesar pregunta relacionada con la imagen usando LLaVA
+                respuesta_imagen = consultaImagen(image_file_path, user_input)
+                if "message" in respuesta_imagen and "content" in respuesta_imagen["message"]:
+                    respuesta = respuesta_imagen["message"]["content"]
+                else:
+                    respuesta = "No se pudo obtener una respuesta válida para la imagen."
+            elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
+                # Preguntas relacionadas con el PDF
+                user_input = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
+                respuesta_texto = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
+                respuesta = respuesta_texto
+            else:
+                # Pregunta estándar
+                respuesta_texto = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
+                respuesta = respuesta_texto
 
-            # Procesar la solicitud del usuario
-            respuesta = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
-            
             # Agregar al historial
             st.session_state["chat_history"].append(HumanMessage(content=user_input))
             st.session_state["chat_history"].append(AIMessage(content=respuesta))
@@ -124,7 +168,10 @@ def main():
     for mensaje in st.session_state["chat_history"]:
         if isinstance(mensaje, HumanMessage):
             with st.chat_message("Usuario"):
-                st.write(mensaje.content)
+                if "Texto:" in mensaje.content:
+                    st.write(mensaje.content.split("\nPregunta:")[1].strip())  # Mostrar solo la pregunta
+                else:
+                    st.write(mensaje.content)
         elif isinstance(mensaje, AIMessage):
             with st.chat_message(bot_name):
                 st.write(mensaje.content)
