@@ -14,7 +14,7 @@ import tempfile
 # Configuración de los modelos de lenguaje
 llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
 
-# Función para convertir una imagen a base64
+# Función para pasar consulta con imagen
 def consultaImagen(image_path, user_input):
     response = ollama.chat(
         model='llava',
