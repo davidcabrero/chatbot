@@ -20,7 +20,7 @@ def consultaImagen(image_path, user_input):
         model='llava',
         messages=[{
             'role': 'user',
-            'content': 'qué hay en la imagen?',
+            'content': user_input,
             'images': [image_path]
         }]
     )
@@ -33,6 +33,14 @@ def extract_pdf_text(pdf_file_path):
     for page in doc:
         text += page.get_text()
     return text
+
+# Resumir el historial de chat para reducir datos enviados al modelo
+def summarize_chat_history(chat_history, max_length=10):
+    """Resumen del historial de chat para reducir el tamaño de los datos enviados al modelo."""
+    if len(chat_history) > max_length:  # Limitar el historial a las últimas interacciones
+        summarized = [msg for msg in chat_history[-max_length:]]
+        return summarized
+    return chat_history
 
 def main():
     # Configurar la aplicación de Streamlit
@@ -118,6 +126,9 @@ def main():
             st.stop()
         else:
             respuesta = ""
+            # Resumir historial de chat antes de la consulta
+            current_history = summarize_chat_history(st.session_state["chat_history"])
+
             if "uploaded_image" in st.session_state and 'image_file_path' in locals():
                 # Procesar pregunta relacionada con la imagen usando LLaVA
                 respuesta_imagen = consultaImagen(image_file_path, user_input)
@@ -127,12 +138,12 @@ def main():
                     respuesta = "No se pudo obtener una respuesta válida para la imagen."
             elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
                 # Preguntas relacionadas con el PDF
-                user_input = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
-                respuesta_texto = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
+                user_input_pdf = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
+                respuesta_texto = cadena.invoke({"user_input": user_input_pdf, "chat_history": current_history})
                 respuesta = respuesta_texto
             else:
                 # Pregunta estándar
-                respuesta_texto = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
+                respuesta_texto = cadena.invoke({"user_input": user_input, "chat_history": current_history})
                 respuesta = respuesta_texto
 
             # Agregar al historial
