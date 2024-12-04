@@ -3,6 +3,7 @@ import ollama
 from langchain_ollama import OllamaLLM
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
 import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -10,6 +11,7 @@ import re
 import fitz  # PyMuPDF
 from PIL import Image
 import tempfile
+from gtts import gTTS  # Para la generación de voz
 
 # Configuración de los modelos de lenguaje
 llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
@@ -34,9 +36,8 @@ def extract_pdf_text(pdf_file_path):
         text += page.get_text()
     return text
 
-# Resumir el historial de chat para reducir datos enviados al modelo
+# Resumir el historial de chat para reducir datos enviados al modelo y mejorar la velocidad de respuesta
 def summarize_chat_history(chat_history, max_length=10):
-    """Resumen del historial de chat para reducir el tamaño de los datos enviados al modelo."""
     if len(chat_history) > max_length:  # Limitar el historial a las últimas interacciones
         summarized = [msg for msg in chat_history[-max_length:]]
         return summarized
@@ -45,7 +46,7 @@ def summarize_chat_history(chat_history, max_length=10):
 def main():
     # Configurar la aplicación de Streamlit
     st.set_page_config(page_title="ChatBot", layout="wide")
-    st.image("logo.png", width=150)
+    st.image("logo.png", width=150)  # Reemplaza "logo.png" con la ruta de tu logo
 
     # Configuración del chatbot
     bot_name = "ChatBot"
@@ -150,6 +151,7 @@ def main():
             st.session_state["chat_history"].append(HumanMessage(content=user_input))
             st.session_state["chat_history"].append(AIMessage(content=respuesta))
 
+
             # Detectar si el usuario pidió un gráfico y especificó datos
             if "gráfico" in user_input.lower():
                 datos = re.findall(r"\[(.*?)\]", user_input)
@@ -176,7 +178,7 @@ def main():
 
     # Mostrar historial de chat en burbujas de conversación diferenciando Usuario y ChatBot
     st.markdown("### Chat")
-    for mensaje in st.session_state["chat_history"]:
+    for i, mensaje in enumerate(st.session_state["chat_history"]):
         if isinstance(mensaje, HumanMessage):
             with st.chat_message("Usuario"):
                 if "Texto:" in mensaje.content:
@@ -186,6 +188,19 @@ def main():
         elif isinstance(mensaje, AIMessage):
             with st.chat_message(bot_name):
                 st.write(mensaje.content)
+
+    # Generar audio de la respuesta SOLO para el último mensaje
+    if st.session_state["chat_history"] and isinstance(st.session_state["chat_history"][-1], AIMessage):
+        audio_file = "respuesta.mp3"
+        if os.path.exists(audio_file):
+            os.remove(audio_file)  # Eliminar archivo de audio anterior
+
+        tts = gTTS(text=st.session_state["chat_history"][-1].content, lang='es')  # 'es' para español
+        tts.save(audio_file)
+
+        # Mostrar botón para reproducir audio
+        with open(audio_file, "rb") as f:
+            st.audio(f.read(), format="audio/mp3")
 
 if __name__ == "__main__":
     main()
