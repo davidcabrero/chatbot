@@ -42,7 +42,7 @@ def summarize_chat_history(chat_history, max_length=10):
         return chat_history[-max_length:]
     return chat_history
 
-# Cargar el modelo de Stable Diffusion solo si se requiere
+# Cargar el modelo de Stable Diffusion para generar imagen, solo si se requiere
 def load_image_model():
     model = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
     return model.to("cpu")  # Cambia a 'cuda' si tienes una GPU compatible
