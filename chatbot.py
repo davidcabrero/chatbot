@@ -12,6 +12,7 @@ from PIL import Image
 import tempfile
 from gtts import gTTS  # Para la generación de voz
 from diffusers import StableDiffusionPipeline
+import torch
 
 # Configuración del modelo de lenguaje
 llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
@@ -42,16 +43,20 @@ def summarize_chat_history(chat_history, max_length=10):
         return chat_history[-max_length:]
     return chat_history
 
-# Cargar el modelo de Stable Diffusion para generar imagen, solo si se requiere
+# Función para cargar el modelo de Stable Diffusion
 def load_image_model():
-    model = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
-    return model.to("cpu")  # Cambia a 'cuda' si tienes una GPU compatible
+    if "image_model" not in st.session_state or st.session_state["image_model"] is None:
+        st.session_state["image_model"] = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+        st.session_state["image_model"] = st.session_state["image_model"].to("cuda" if torch.cuda.is_available() else "cpu")
+    return st.session_state["image_model"]
 
 # Función para generar una imagen
-def generate_image(prompt, sd_model):
-    with st.spinner("Generando imagen..."):
-        image = sd_model(prompt).images[0]
-        return image
+def generate_image(prompt):
+    sd_model = load_image_model()
+    with torch.no_grad():  # Desactivar gradientes para inferencia
+        with st.spinner("Generando imagen..."):
+            image = sd_model(prompt).images[0]
+            return image
 
 def main():
     # Configuración inicial de Streamlit
@@ -63,14 +68,14 @@ def main():
         st.session_state["chat_history"] = []
     if "pdf_text" not in st.session_state:
         st.session_state["pdf_text"] = ""
-    if "image_model" not in st.session_state:
-        st.session_state["image_model"] = None
+    if "uploaded_image_path" not in st.session_state:
+        st.session_state["uploaded_image_path"] = None
 
     # Configuración del chatbot
     bot_name = "ChatBot"
     bot_prompt = f"Eres una IA desarrollada por David Cabrero y te llamas {bot_name}. Respondes y haces lo que te pida el usuario."
-    prompt_template = ChatPromptTemplate.from_messages([
-        ("system", bot_prompt),
+    prompt_template = ChatPromptTemplate.from_messages([ 
+        ("system", bot_prompt), 
         MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{user_input}")
     ])
@@ -78,7 +83,7 @@ def main():
 
     # Preguntas sugeridas
     st.markdown("### Preguntas Sugeridas")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         if st.button("¿Cuál es la capital de Francia?"):
             st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
@@ -91,14 +96,25 @@ def main():
     with col4:
         if st.button("Programa Python"):
             st.session_state["user_input"] = "Programa en python la suma de 2 números"
+    with col5:
+        if st.button("Genera imagen"):
+            st.session_state["user_input"] = "Genera una imagen de un gato"         
 
     # Subir archivos (PDF o imagen)
     st.markdown("### Subir Archivos")
     col1, col2 = st.columns(2)
     with col1:
-        uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf")
+        uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf", key="uploaded_pdf")
     with col2:
-        uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"])
+        uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"], key="uploaded_image")
+
+    # Detectar si se ha eliminado el PDF o la imagen
+    if "uploaded_pdf" in st.session_state and st.session_state["uploaded_pdf"] is None:
+        st.session_state["chat_history"] = []  # Vaciar historial
+        st.session_state["pdf_text"] = ""  # Limpiar texto del PDF
+
+    if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"] is None:
+        st.session_state["chat_history"] = []  # Vaciar historial
 
     if uploaded_pdf:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
@@ -110,8 +126,7 @@ def main():
     if uploaded_image:
         with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
             tmp_file.write(uploaded_image.read())
-            image_file_path = tmp_file.name
-        st.session_state["uploaded_image"] = Image.open(image_file_path)
+            st.session_state["uploaded_image_path"] = tmp_file.name
         st.write("Imagen cargada con éxito. Puedes hacer preguntas sobre ella.")
 
     # Entrada del usuario
@@ -129,26 +144,20 @@ def main():
         respuesta = ""
         current_history = summarize_chat_history(st.session_state["chat_history"])
 
-        if "uploaded_image" in st.session_state and 'image_file_path' in locals():
-            respuesta_imagen = consultaImagen(image_file_path, user_input)
+        if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
+            respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
             respuesta = respuesta_imagen.get("message", {}).get("content", "No se pudo procesar la imagen.")
         elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
             user_input_pdf = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
             respuesta = cadena.invoke({"user_input": user_input_pdf, "chat_history": current_history})
         elif "genera una imagen de" in user_input.lower():
-            if not st.session_state["image_model"]:
-                st.session_state["image_model"] = load_image_model()
-                # Extraer el prompt de la imagen
-                prompt_image = user_input.lower().replace("genera una imagen de", "").strip()
-                # Generar imagen
-                image = generate_image(prompt_image, st.session_state["image_model"])
-                # Guardar la imagen temporalmente para mostrarla
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
-                    image.save(tmp_file.name)
-                    image_path = tmp_file.name
-                # Mostrar la imagen
-                st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
-                respuesta = f"He generado una imagen para: {prompt_image}"    
+            # Extraer el prompt de la imagen
+            prompt_image = user_input.lower().replace("genera una imagen de", "").strip()
+            # Generar imagen
+            image = generate_image(prompt_image)
+            # Mostrar la imagen
+            st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
+            respuesta = f"He generado una imagen para: {prompt_image}"    
         else:
             respuesta = cadena.invoke({"user_input": user_input, "chat_history": current_history})
 
