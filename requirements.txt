@@ -4,3 +4,4 @@ streamlit
 matplot
 pandas
 gtts
+torch
