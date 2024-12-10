@@ -54,9 +54,10 @@ def load_image_model():
 def generate_image(prompt):
     sd_model = load_image_model()
     with torch.no_grad():  # Desactivar gradientes para inferencia
-        with st.spinner("Generando imagen..."):
-            image = sd_model(prompt).images[0]
-            return image
+        with torch.cuda.amp.autocast():  # Precisión mixta
+            with st.spinner("Generando imagen..."):
+                image = sd_model(prompt).images[0]
+                return image
 
 def main():
     # Configuración inicial de Streamlit
