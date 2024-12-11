@@ -5,3 +5,4 @@ matplot
 pandas
 gtts
 torch
+plotly
