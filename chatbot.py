@@ -13,9 +13,39 @@ import tempfile
 from gtts import gTTS  # Para la generación de voz
 from diffusers import StableDiffusionPipeline
 import torch
+import plotly.express as px
 
 # Configuración del modelo de lenguaje
 llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
+
+# Función para gestionar tareas
+if "tasks" not in st.session_state:
+    st.session_state["tasks"] = []
+
+def add_task(task_name, due_date, assigned_to):
+    st.session_state["tasks"].append({"task": task_name, "due_date": due_date, "assigned_to": assigned_to, "completed": False})
+
+def mark_task_completed(index):
+    st.session_state["tasks"][index]["completed"] = True
+
+def delete_task(index):
+    st.session_state["tasks"].pop(index)
+
+# Función para crear dashboards interactivos
+def create_dashboard(data):
+    st.markdown("## Dashboard Interactivo")
+    chart_type = st.selectbox("Selecciona el tipo de gráfico", ["Barras", "Dispersión", "Líneas"])
+    x_axis = st.selectbox("Selecciona el eje X", data.columns)
+    y_axis = st.selectbox("Selecciona el eje Y", data.columns)
+
+    if chart_type == "Barras":
+        fig = px.bar(data, x=x_axis, y=y_axis, title="Gráfico de Barras")
+    elif chart_type == "Dispersión":
+        fig = px.scatter(data, x=x_axis, y=y_axis, title="Gráfico de Dispersión")
+    elif chart_type == "Líneas":
+        fig = px.line(data, x=x_axis, y=y_axis, title="Gráfico de Líneas")
+
+    st.plotly_chart(fig)
 
 # Función para consultar con imagen (usando LLaVA)
 def consultaImagen(image_path, user_input):
@@ -62,7 +92,7 @@ def generate_image(prompt):
 def main():
     # Configuración inicial de Streamlit
     st.set_page_config(page_title="ChatBot", layout="wide")
-    st.image("logo.png", width=150)  # Reemplaza con tu logo
+    st.image("logo.png", width=150)
 
     # Variables de estado
     if "chat_history" not in st.session_state:
@@ -82,88 +112,115 @@ def main():
     ])
     cadena = prompt_template | llm_text
 
-    # Preguntas sugeridas
-    st.markdown("### Preguntas Sugeridas")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        if st.button("¿Cuál es la capital de Francia?"):
-            st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
-    with col2:
-        if st.button("Muestra un gráfico de ejemplo"):
-            st.session_state["user_input"] = "Muestra un gráfico con datos [A, B, C] [10, 20, 15]"
-    with col3:
-        if st.button("¿Quién te creó?"):
-            st.session_state["user_input"] = "¿Quién te creó?"
-    with col4:
-        if st.button("Programa Python"):
-            st.session_state["user_input"] = "Programa en python la suma de 2 números"
-    with col5:
-        if st.button("Genera imagen"):
-            st.session_state["user_input"] = "Genera una imagen de un gato"         
-
-    # Subir archivos (PDF o imagen)
-    st.markdown("### Subir Archivos")
-    col1, col2 = st.columns(2)
-    with col1:
-        uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf", key="uploaded_pdf")
-    with col2:
-        uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"], key="uploaded_image")
-
-    # Detectar si se ha eliminado el PDF o la imagen
-    if "uploaded_pdf" in st.session_state and st.session_state["uploaded_pdf"] is None:
-        st.session_state["chat_history"] = []  # Vaciar historial
-        st.session_state["pdf_text"] = ""  # Limpiar texto del PDF
-
-    if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"] is None:
-        st.session_state["chat_history"] = []  # Vaciar historial
-
-    if uploaded_pdf:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(uploaded_pdf.read())
-            pdf_file_path = tmp_file.name
-        st.session_state["pdf_text"] = extract_pdf_text(pdf_file_path)
-        st.write("PDF cargado con éxito. Puedes hacer preguntas sobre su contenido.")
-
-    if uploaded_image:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-            tmp_file.write(uploaded_image.read())
-            st.session_state["uploaded_image_path"] = tmp_file.name
-        st.write("Imagen cargada con éxito. Puedes hacer preguntas sobre ella.")
-
-    # Entrada del usuario
-    user_input = st.text_input("Escribe tu pregunta", key="user_input")
-
     # Barra lateral
     st.sidebar.title("ChatBot - Menú")
-    st.sidebar.write("Explora las funcionalidades de ChatBot o contacta con soporte.")
-    st.sidebar.header("Acerca de ChatBot")
-    st.sidebar.write("ChatBot es una IA desarrollada por David Cabrero.")
-    st.sidebar.header("Contacto")
-    st.sidebar.write("Para más información, contáctanos en davidcabrerojimenez@gmail.com")
+    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Dashboards Interactivos"])
 
-    if st.button("Preguntar"):
-        respuesta = ""
-        current_history = summarize_chat_history(st.session_state["chat_history"])
+    if menu == "Gestión de Tareas":
+        st.markdown("## Gestión de Tareas")
 
-        if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
-            respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
-            respuesta = respuesta_imagen.get("message", {}).get("content", "No se pudo procesar la imagen.")
-        elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
-            user_input_pdf = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
-            respuesta = cadena.invoke({"user_input": user_input_pdf, "chat_history": current_history})
-        elif "genera una imagen de" in user_input.lower():
-            # Extraer el prompt de la imagen
-            prompt_image = user_input.lower().replace("genera una imagen de", "").strip()
-            # Generar imagen
-            image = generate_image(prompt_image)
-            # Mostrar la imagen
-            st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
-            respuesta = f"He generado una imagen para: {prompt_image}"    
-        else:
-            respuesta = cadena.invoke({"user_input": user_input, "chat_history": current_history})
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            task_name = st.text_input("Nombre de la tarea")
+        with col2:
+            due_date = st.date_input("Fecha de vencimiento")
+        with col3:
+            assigned_to = st.text_input("Asignar a")
 
-        st.session_state["chat_history"].append(HumanMessage(content=user_input))
-        st.session_state["chat_history"].append(AIMessage(content=respuesta))
+        if st.button("Agregar Tarea"):
+            if task_name and assigned_to:
+                add_task(task_name, due_date, assigned_to)
+                st.success("Tarea agregada correctamente.")
+
+        st.markdown("### Lista de Tareas")
+        for i, task in enumerate(st.session_state["tasks"]):
+            task_status = "\u2705" if task["completed"] else "\u274C"
+            col1, col2, col3, col4 = st.columns([5, 2, 2, 1])
+            col1.write(f"{task_status} {task['task']} (Vence: {task['due_date']}) - Asignada a: {task['assigned_to']}")
+            if not task["completed"]:
+                col2.button("Completar", key=f"complete_{i}", on_click=mark_task_completed, args=(i,))
+            col3.button("Eliminar", key=f"delete_{i}", on_click=delete_task, args=(i,))
+
+    elif menu == "Dashboards Interactivos":
+        st.markdown("## Dashboards Interactivos")
+        st.markdown("Sube un archivo CSV para crear un dashboard interactivo.")
+        uploaded_file = st.file_uploader("Sube un archivo CSV", type="csv")
+
+        if uploaded_file:
+            data = pd.read_csv(uploaded_file)
+            st.write("Vista previa de los datos:")
+            st.dataframe(data.head())
+            create_dashboard(data)
+
+    elif menu == "Chat":
+        st.markdown("### Preguntas Sugeridas")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            if st.button("¿Cuál es la capital de Francia?"):
+                st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
+        with col2:
+            if st.button("Muestra un gráfico de ejemplo"):
+                st.session_state["user_input"] = "Muestra un gráfico con datos [A, B, C] [10, 20, 15]"
+        with col3:
+            if st.button("¿Quién te creó?"):
+                st.session_state["user_input"] = "¿Quién te creó?"
+        with col4:
+            if st.button("Programa Python"):
+                st.session_state["user_input"] = "Programa en python la suma de 2 números"
+        with col5:
+            if st.button("Genera imagen"):
+                st.session_state["user_input"] = "Genera una imagen de un gato"         
+
+        st.markdown("### Subir Archivos")
+        col1, col2 = st.columns(2)
+        with col1:
+            uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf", key="uploaded_pdf")
+        with col2:
+            uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"], key="uploaded_image")
+
+        # Detectar si se ha eliminado el PDF o la imagen
+        if "uploaded_pdf" in st.session_state and st.session_state["uploaded_pdf"] is None:
+            st.session_state["chat_history"] = []  # Vaciar historial
+            st.session_state["pdf_text"] = ""  # Limpiar texto del PDF
+
+        if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"] is None:
+            st.session_state["chat_history"] = []  # Vaciar historial
+
+        if uploaded_pdf:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                tmp_file.write(uploaded_pdf.read())
+                pdf_file_path = tmp_file.name
+            st.session_state["pdf_text"] = extract_pdf_text(pdf_file_path)
+            st.write("PDF cargado con éxito. Puedes hacer preguntas sobre su contenido.")
+
+        if uploaded_image:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                tmp_file.write(uploaded_image.read())
+                st.session_state["uploaded_image_path"] = tmp_file.name
+            st.write("Imagen cargada con éxito. Puedes hacer preguntas sobre ella.")
+
+        user_input = st.text_input("Escribe tu pregunta", key="user_input")
+
+        if st.button("Preguntar"):
+            respuesta = ""
+            current_history = summarize_chat_history(st.session_state["chat_history"])
+
+            if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
+                respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
+                respuesta = respuesta_imagen.get("message", {}).get("content", "No se pudo procesar la imagen.")
+            elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
+                user_input_pdf = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
+                respuesta = cadena.invoke({"user_input": user_input_pdf, "chat_history": current_history})
+            elif "genera una imagen de" in user_input.lower():
+                prompt_image = user_input.lower().replace("genera una imagen de", "").strip()
+                image = generate_image(prompt_image)
+                st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
+                respuesta = f"He generado una imagen para: {prompt_image}"
+            else:
+                respuesta = cadena.invoke({"user_input": user_input, "chat_history": current_history})
+
+            st.session_state["chat_history"].append(HumanMessage(content=user_input))
+            st.session_state["chat_history"].append(AIMessage(content=respuesta))
 
         # Detectar si el usuario pidió un gráfico
         if "gráfico" in user_input.lower():
