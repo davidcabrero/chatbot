@@ -46,6 +46,7 @@ def create_dashboard(data):
         fig = px.line(data, x=x_axis, y=y_axis, title="Gráfico de Líneas")
 
     st.plotly_chart(fig)
+    return chart_type, x_axis, y_axis
 
 # Función para consultar con imagen (usando LLaVA)
 def consultaImagen(image_path, user_input):
@@ -101,6 +102,10 @@ def main():
         st.session_state["pdf_text"] = ""
     if "uploaded_image_path" not in st.session_state:
         st.session_state["uploaded_image_path"] = None
+    if "csv_data" not in st.session_state:
+        st.session_state["csv_data"] = None
+    if "chart_info" not in st.session_state:
+        st.session_state["chart_info"] = None
 
     # Configuración del chatbot
     bot_name = "ChatBot"
@@ -148,9 +153,11 @@ def main():
 
         if uploaded_file:
             data = pd.read_csv(uploaded_file)
+            st.session_state["csv_data"] = data
             st.write("Vista previa de los datos:")
             st.dataframe(data.head())
-            create_dashboard(data)
+            chart_info = create_dashboard(data)
+            st.session_state["chart_info"] = chart_info
 
     elif menu == "Chat":
         st.markdown("### Preguntas Sugeridas")
@@ -216,29 +223,29 @@ def main():
                 image = generate_image(prompt_image)
                 st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
                 respuesta = f"He generado una imagen para: {prompt_image}"
+            elif "gráfico" in user_input.lower() and st.session_state["chart_info"]:
+                chart_type, x_axis, y_axis = st.session_state["chart_info"]
+                respuesta = f"El gráfico creado es un gráfico de {chart_type} con el eje X como {x_axis} y el eje Y como {y_axis}."
+            elif "csv" in user_input.lower() and st.session_state["csv_data"] is not None:
+                respuesta = f"El archivo CSV subido contiene las siguientes columnas: {', '.join(st.session_state['csv_data'].columns)}."
+            elif "tareas de" in user_input.lower():
+                persona = user_input.lower().replace("tareas de", "").strip()
+                tareas_asignadas = [task for task in st.session_state["tasks"] if task["assigned_to"].lower() == persona.lower()]
+                if tareas_asignadas:
+                    respuesta = f"Tareas asignadas a {persona}: " + ", ".join([task["task"] for task in tareas_asignadas])
+                else:
+                    respuesta = f"No hay tareas asignadas a {persona}."
+            elif "tareas activas" in user_input.lower():
+                tareas_activas = [task for task in st.session_state["tasks"] if not task["completed"]]
+                if tareas_activas:
+                    respuesta = "Tareas activas: " + ", ".join([task["task"] for task in tareas_activas])
+                else:
+                    respuesta = "No hay tareas activas."
             else:
                 respuesta = cadena.invoke({"user_input": user_input, "chat_history": current_history})
 
             st.session_state["chat_history"].append(HumanMessage(content=user_input))
             st.session_state["chat_history"].append(AIMessage(content=respuesta))
-
-        # Detectar si el usuario pidió un gráfico
-        if "gráfico" in user_input.lower():
-            datos = re.findall(r"\[(.*?)\]", user_input)
-            if datos:
-                categorias = datos[0].split(',')
-                valores = list(map(float, datos[1].split(','))) if len(datos) > 1 else []
-                if len(categorias) == len(valores) and categorias:
-                    fig, ax = plt.subplots()
-                    ax.bar(categorias, valores)
-                    ax.set_title('Gráfico Personalizado')
-                    ax.set_xlabel('Categorías')
-                    ax.set_ylabel('Valores')
-                    st.pyplot(fig)
-                else:
-                    st.write("Error: Categorías y valores deben coincidir.")
-            else:
-                st.write("Error: Usa el formato [categoría1, categoría2] [valor1, valor2].")
 
     # Mostrar historial de chat
     st.markdown("### Chat")
