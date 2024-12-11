@@ -33,7 +33,7 @@ def delete_task(index):
 
 # Función para crear dashboards interactivos
 def create_dashboard(data):
-    st.markdown("## Dashboard Interactivo")
+    st.markdown("## Analizar Datos")
     chart_type = st.selectbox("Selecciona el tipo de gráfico", ["Barras", "Dispersión", "Líneas"])
     x_axis = st.selectbox("Selecciona el eje X", data.columns)
     y_axis = st.selectbox("Selecciona el eje Y", data.columns)
@@ -119,7 +119,7 @@ def main():
 
     # Barra lateral
     st.sidebar.title("ChatBot - Menú")
-    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Dashboards Interactivos"])
+    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Analizar Datos"])
 
     if menu == "Gestión de Tareas":
         st.markdown("## Gestión de Tareas")
@@ -146,8 +146,8 @@ def main():
                 col2.button("Completar", key=f"complete_{i}", on_click=mark_task_completed, args=(i,))
             col3.button("Eliminar", key=f"delete_{i}", on_click=delete_task, args=(i,))
 
-    elif menu == "Dashboards Interactivos":
-        st.markdown("## Dashboards Interactivos")
+    elif menu == "Analizar Datos":
+        st.markdown("## Análisis de Datos")
         st.markdown("Sube un archivo CSV para crear un dashboard interactivo.")
         uploaded_file = st.file_uploader("Sube un archivo CSV", type="csv")
 
@@ -161,13 +161,13 @@ def main():
 
     elif menu == "Chat":
         st.markdown("### Preguntas Sugeridas")
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
         with col1:
             if st.button("¿Cuál es la capital de Francia?"):
                 st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
         with col2:
-            if st.button("Muestra un gráfico de ejemplo"):
-                st.session_state["user_input"] = "Muestra un gráfico con datos [A, B, C] [10, 20, 15]"
+            if st.button("Dime las tareas activas"):
+                st.session_state["user_input"] = "Tareas activas"     
         with col3:
             if st.button("¿Quién te creó?"):
                 st.session_state["user_input"] = "¿Quién te creó?"
@@ -176,7 +176,10 @@ def main():
                 st.session_state["user_input"] = "Programa en python la suma de 2 números"
         with col5:
             if st.button("Genera imagen"):
-                st.session_state["user_input"] = "Genera una imagen de un gato"         
+                st.session_state["user_input"] = "Genera una imagen de un gato" 
+        with col6:
+            if st.button("Analiza el csv"):
+                st.session_state["user_input"] = "Analiza el csv"                   
 
         st.markdown("### Subir Archivos")
         col1, col2 = st.columns(2)
