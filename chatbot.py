@@ -33,7 +33,7 @@ def delete_task(index):
 
 # Función para crear dashboards interactivos
 def create_dashboard(data):
-    st.markdown("## Analizar Datos")
+    st.markdown("## Análisis de Datos")
     chart_type = st.selectbox("Selecciona el tipo de gráfico", ["Barras", "Dispersión", "Líneas"])
     x_axis = st.selectbox("Selecciona el eje X", data.columns)
     y_axis = st.selectbox("Selecciona el eje Y", data.columns)
@@ -90,6 +90,15 @@ def generate_image(prompt):
                 image = sd_model(prompt).images[0]
                 return image
 
+# Función para formatear los datos del CSV en la estructura especificada
+def format_csv_as_table(data):
+    columns = data.columns.tolist()
+    rows = data.values.tolist()
+    formatted_data = f"Nombres Columnas: {columns}\nFilas:\n"
+    for row in rows:
+        formatted_data += f"[{', '.join(map(str, row))}]\n"
+    return formatted_data
+
 def main():
     # Configuración inicial de Streamlit
     st.set_page_config(page_title="ChatBot", layout="wide")
@@ -106,6 +115,8 @@ def main():
         st.session_state["csv_data"] = None
     if "chart_info" not in st.session_state:
         st.session_state["chart_info"] = None
+    if "uploaded_file" not in st.session_state:
+        st.session_state["uploaded_file"] = None    
 
     # Configuración del chatbot
     bot_name = "ChatBot"
@@ -119,7 +130,7 @@ def main():
 
     # Barra lateral
     st.sidebar.title("ChatBot - Menú")
-    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Analizar Datos"])
+    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Análisis de Datos"])
 
     if menu == "Gestión de Tareas":
         st.markdown("## Gestión de Tareas")
@@ -146,7 +157,7 @@ def main():
                 col2.button("Completar", key=f"complete_{i}", on_click=mark_task_completed, args=(i,))
             col3.button("Eliminar", key=f"delete_{i}", on_click=delete_task, args=(i,))
 
-    elif menu == "Analizar Datos":
+    elif menu == "Análisis de Datos":
         st.markdown("## Análisis de Datos")
         st.markdown("Sube un archivo CSV para crear un dashboard interactivo.")
         uploaded_file = st.file_uploader("Sube un archivo CSV", type="csv")
@@ -159,15 +170,38 @@ def main():
             chart_info = create_dashboard(data)
             st.session_state["chart_info"] = chart_info
 
+        if st.session_state["csv_data"] is not None:
+            st.markdown("### Preguntas sobre el CSV")
+            user_input_csv = st.text_input("Escribe tu pregunta sobre el CSV", key="user_input_csv")
+
+            if st.button("Preguntar sobre CSV"):
+                respuesta = ""
+                current_history = summarize_chat_history(st.session_state["chat_history"])
+
+                csv_table = format_csv_as_table(st.session_state["csv_data"])
+                user_input_csv_prompt = f"Con estos datos:\n{csv_table}\nresponde a esta pregunta: {user_input_csv}"
+                respuesta = cadena.invoke({"user_input": user_input_csv_prompt, "chat_history": current_history})
+
+                st.session_state["chat_history"].append(HumanMessage(content=user_input_csv))
+                st.session_state["chat_history"].append(AIMessage(content=respuesta))
+
+            # Mostrar historial de chat para preguntas sobre el CSV
+            st.markdown("### Chat sobre CSV")
+            for mensaje in st.session_state["chat_history"]:
+                role = "Usuario" if isinstance(mensaje, HumanMessage) else bot_name
+                with st.chat_message(role):
+                    st.write(mensaje.content)
+
     elif menu == "Chat":
+
         st.markdown("### Preguntas Sugeridas")
         col1, col2, col3, col4, col5, col6 = st.columns(6)
         with col1:
             if st.button("¿Cuál es la capital de Francia?"):
                 st.session_state["user_input"] = "¿Cuál es la capital de Francia?"
         with col2:
-            if st.button("Dime las tareas activas"):
-                st.session_state["user_input"] = "Tareas activas"     
+            if st.button("Gráfico de ejemplo"):
+                st.session_state["user_input"] = "Muestra un gráfico con datos [A, B, C] [10, 20, 15]"
         with col3:
             if st.button("¿Quién te creó?"):
                 st.session_state["user_input"] = "¿Quién te creó?"
@@ -178,8 +212,8 @@ def main():
             if st.button("Genera imagen"):
                 st.session_state["user_input"] = "Genera una imagen de un gato" 
         with col6:
-            if st.button("Analiza el csv"):
-                st.session_state["user_input"] = "Analiza el csv"                   
+            if st.button("Tareas activas"):
+                st.session_state["user_input"] = "Tareas activas"                
 
         st.markdown("### Subir Archivos")
         col1, col2 = st.columns(2)
@@ -187,15 +221,8 @@ def main():
             uploaded_pdf = st.file_uploader("Sube un archivo PDF", type="pdf", key="uploaded_pdf")
         with col2:
             uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"], key="uploaded_image")
-
-        # Detectar si se ha eliminado el PDF o la imagen
-        if "uploaded_pdf" in st.session_state and st.session_state["uploaded_pdf"] is None:
-            st.session_state["chat_history"] = []  # Vaciar historial
-            st.session_state["pdf_text"] = ""  # Limpiar texto del PDF
-
-        if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"] is None:
-            st.session_state["chat_history"] = []  # Vaciar historial
-
+        if st.session_state["uploaded_file"] and not uploaded_file:
+           st.write("Has eliminado el archivo subido.")
         if uploaded_pdf:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
                 tmp_file.write(uploaded_pdf.read())
@@ -213,24 +240,42 @@ def main():
 
         if st.button("Preguntar"):
             respuesta = ""
-            current_history = summarize_chat_history(st.session_state["chat_history"])
-
             if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
                 respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
                 respuesta = respuesta_imagen.get("message", {}).get("content", "No se pudo procesar la imagen.")
+                #st.session_state["chat_history"] = []  # Vaciar historial
             elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
                 user_input_pdf = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
-                respuesta = cadena.invoke({"user_input": user_input_pdf, "chat_history": current_history})
+                respuesta = cadena.invoke({"user_input": user_input_pdf, "chat_history": st.session_state["chat_history"]})
             elif "genera una imagen de" in user_input.lower():
                 prompt_image = user_input.lower().replace("genera una imagen de", "").strip()
                 image = generate_image(prompt_image)
                 st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
                 respuesta = f"He generado una imagen para: {prompt_image}"
-            elif "gráfico" in user_input.lower() and st.session_state["chart_info"]:
-                chart_type, x_axis, y_axis = st.session_state["chart_info"]
-                respuesta = f"El gráfico creado es un gráfico de {chart_type} con el eje X como {x_axis} y el eje Y como {y_axis}."
-            elif "csv" in user_input.lower() and st.session_state["csv_data"] is not None:
-                respuesta = f"El archivo CSV subido contiene las siguientes columnas: {', '.join(st.session_state['csv_data'].columns)}."
+                #st.session_state["chat_history"] = []  # Vaciar historial
+            # Detectar si el usuario pidió un gráfico y especificó datos
+            elif "gráfico" in user_input.lower():
+                datos = re.findall(r"\[(.*?)\]", user_input)
+                if datos:
+                    categorias = datos[0].split(',')
+                    valores = list(map(float, datos[1].split(','))) if len(datos) > 1 else []
+
+                    if len(categorias) == len(valores) and len(categorias) > 0:
+                        # Crear un gráfico de barras con los datos proporcionados
+                        st.write("Generando gráfico solicitado...")
+
+                        fig, ax = plt.subplots()
+                        ax.bar(categorias, valores)
+                        ax.set_title('Gráfico Personalizado')
+                        ax.set_xlabel('Categoría')
+                        ax.set_ylabel('Valores')
+
+                        # Mostrar el gráfico en la aplicación
+                        st.pyplot(fig)
+                    else:
+                        st.write("Error: Asegúrate de que las categorías y valores coincidan en número y formato.")
+                else:
+                    st.write("Error: Por favor, ingresa los datos en el formato [categoría1, categoría2, ...] [valor1, valor2, ...].")
             elif "tareas de" in user_input.lower():
                 persona = user_input.lower().replace("tareas de", "").strip()
                 tareas_asignadas = [task for task in st.session_state["tasks"] if task["assigned_to"].lower() == persona.lower()]
@@ -245,27 +290,39 @@ def main():
                 else:
                     respuesta = "No hay tareas activas."
             else:
-                respuesta = cadena.invoke({"user_input": user_input, "chat_history": current_history})
-
+                respuesta = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
+            
+            # Agregar al historial si la respuesta no contiene texto pdf o imagen
+            #if not ("uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]) and not ("pdf_text" in st.session_state and st.session_state["pdf_text"]):
             st.session_state["chat_history"].append(HumanMessage(content=user_input))
             st.session_state["chat_history"].append(AIMessage(content=respuesta))
 
-    # Mostrar historial de chat
-    st.markdown("### Chat")
-    for mensaje in st.session_state["chat_history"]:
-        role = "Usuario" if isinstance(mensaje, HumanMessage) else bot_name
-        with st.chat_message(role):
-            st.write(mensaje.content)
+            # Mostrar historial de chat
+            st.markdown("### Chat")
+            for mensaje in st.session_state["chat_history"]:
+                role = "Usuario" if isinstance(mensaje, HumanMessage) else bot_name
+                with st.chat_message(role):
+                    st.write(mensaje.content) 
 
-    # Generar audio para la última respuesta
-    if st.session_state["chat_history"] and isinstance(st.session_state["chat_history"][-1], AIMessage):
-        audio_file = "respuesta.mp3"
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
-        tts = gTTS(text=st.session_state["chat_history"][-1].content, lang='es')
-        tts.save(audio_file)
-        with open(audio_file, "rb") as f:
-            st.audio(f.read(), format="audio/mp3")
+            # Elimina el texto pdf y la imagen del array de chat_history para no interferir con preguntas siguientes
+            for i in range(len(st.session_state["chat_history"])):
+                if "Imagen:" in st.session_state["chat_history"][i].content:
+                        st.session_state["chat_history"].pop(i)
+                        break
+            for i in range(len(st.session_state["chat_history"])):
+                if "Texto:" in st.session_state["chat_history"][i].content:
+                        st.session_state["chat_history"].pop(i)
+                        break       
+
+            # Generar audio para la última respuesta
+            if st.session_state["chat_history"] and isinstance(st.session_state["chat_history"][-1], AIMessage):
+                audio_file = "respuesta.mp3"
+                if os.path.exists(audio_file):
+                    os.remove(audio_file)
+                tts = gTTS(text=st.session_state["chat_history"][-1].content, lang='es')
+                tts.save(audio_file)
+                with open(audio_file, "rb") as f:
+                    st.audio(f.read(), format="audio/mp3")
 
 if __name__ == "__main__":
     main()
