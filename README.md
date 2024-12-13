@@ -1,13 +1,19 @@
-## Como ejecutar el chatbot en Visual
+# ChatBot de IA para Equipos de Analistas de Datos 📊
+## Como Ejecutarlo en Visual 🛠️
 #### Selecciona el entorno virtual y actívalo
+```
+chatbot\Scripts\activate
+```
+#### Instala las dependencias
 ```
 pip install -r requirements.txt
 ```
+#### Ejecuta la aplicación
 ```
 streamlit run chatbot.py
 ```
 
-## Funcionalidades
+## Funcionalidades 🤖
 
 ### 1. **Chatea con Chatbot**
 Pregúntale cualquier cosa, habla con chatbot de todo.
