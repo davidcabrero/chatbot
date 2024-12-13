@@ -131,7 +131,17 @@ def main():
     # Barra lateral
     st.sidebar.title("ChatBot - Menú")
     menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Análisis de Datos"])
+    
+    # Botón para borrar el historial de chat y dejar vacio la sección de los mensajes
+    if st.sidebar.button("Borrar historial"):
+        st.session_state["chat_history"] = []
+        st.session_state["pdf_text"] = ""
+        st.session_state["uploaded_image_path"] = None
+        st.session_state["csv_data"] = None
+        st.session_state["chart_info"] = None
+        st.session_state["uploaded_file"] = None
 
+    # Funcionalidades
     if menu == "Gestión de Tareas":
         st.markdown("## Gestión de Tareas")
 
@@ -167,7 +177,7 @@ def main():
             st.session_state["csv_data"] = data
             st.write("Vista previa de los datos:")
             st.dataframe(data.head())
-            chart_info = create_dashboard(data)
+            chart_info = create_dashboard(data) # Crear las gráficas
             st.session_state["chart_info"] = chart_info
 
         if st.session_state["csv_data"] is not None:
@@ -223,6 +233,8 @@ def main():
             uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"], key="uploaded_image")
         if st.session_state["uploaded_file"] and not uploaded_file:
            st.write("Has eliminado el archivo subido.")
+
+        # Procesar archivos subidos   
         if uploaded_pdf:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
                 tmp_file.write(uploaded_pdf.read())
@@ -239,11 +251,13 @@ def main():
         user_input = st.text_input("Escribe tu pregunta", key="user_input")
 
         if st.button("Preguntar"):
+
             respuesta = ""
+
+            # Preguntas con archivos
             if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
                 respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
                 respuesta = respuesta_imagen.get("message", {}).get("content", "No se pudo procesar la imagen.")
-                #st.session_state["chat_history"] = []  # Vaciar historial
             elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
                 user_input_pdf = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
                 respuesta = cadena.invoke({"user_input": user_input_pdf, "chat_history": st.session_state["chat_history"]})
@@ -252,7 +266,7 @@ def main():
                 image = generate_image(prompt_image)
                 st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
                 respuesta = f"He generado una imagen para: {prompt_image}"
-                #st.session_state["chat_history"] = []  # Vaciar historial
+
             # Detectar si el usuario pidió un gráfico y especificó datos
             elif "gráfico" in user_input.lower():
                 datos = re.findall(r"\[(.*?)\]", user_input)
@@ -276,6 +290,8 @@ def main():
                         st.write("Error: Asegúrate de que las categorías y valores coincidan en número y formato.")
                 else:
                     st.write("Error: Por favor, ingresa los datos en el formato [categoría1, categoría2, ...] [valor1, valor2, ...].")
+            
+            # Preguntas sobre las tareas
             elif "tareas de" in user_input.lower():
                 persona = user_input.lower().replace("tareas de", "").strip()
                 tareas_asignadas = [task for task in st.session_state["tasks"] if task["assigned_to"].lower() == persona.lower()]
@@ -292,8 +308,7 @@ def main():
             else:
                 respuesta = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
             
-            # Agregar al historial si la respuesta no contiene texto pdf o imagen
-            #if not ("uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]) and not ("pdf_text" in st.session_state and st.session_state["pdf_text"]):
+            # Agregar al historial
             st.session_state["chat_history"].append(HumanMessage(content=user_input))
             st.session_state["chat_history"].append(AIMessage(content=respuesta))
 
