@@ -15,6 +15,7 @@ from gtts import gTTS  # Para la generación de voz
 from diffusers import StableDiffusionPipeline
 import torch
 import plotly.express as px
+from fpdf import FPDF
 
 # Configuración del modelo de lenguaje
 llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
@@ -100,6 +101,14 @@ def format_data(data):
         formatted_data += f"[{', '.join(map(str, row))}]\n"
     return formatted_data
 
+# Función para generar un PDF con la última respuesta del chatbot
+def generate_pdf(text, filename="respuesta.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 10, text)
+    pdf.output(filename)
+
 def main():
     # Configuración inicial de Streamlit
     st.set_page_config(page_title="DataBot", layout="wide")
@@ -141,6 +150,14 @@ def main():
         st.session_state["csv_data"] = None
         st.session_state["chart_info"] = None
         st.session_state["uploaded_file"] = None
+
+    # Botón para descargar el PDF con la última respuesta del chatbot
+    if st.sidebar.button("Generar PDF de respuesta"):
+        if st.session_state["chat_history"] and isinstance(st.session_state["chat_history"][-1], AIMessage):
+            last_response = st.session_state["chat_history"][-1].content
+            generate_pdf(last_response)
+            with open("respuesta.pdf", "rb") as f:
+                st.sidebar.download_button("Descargar PDF", f, file_name="respuesta.pdf")    
 
     # Funcionalidades
     if menu == "Gestión de Tareas":
