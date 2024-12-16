@@ -1,3 +1,4 @@
+# David Cabrero Jiménez
 import os
 import ollama
 from langchain_ollama import OllamaLLM
@@ -91,7 +92,7 @@ def generate_image(prompt):
                 return image
 
 # Función para formatear los datos del CSV en la estructura especificada
-def format_csv_as_table(data):
+def format_data(data):
     columns = data.columns.tolist()
     rows = data.values.tolist()
     formatted_data = f"Nombres Columnas: {columns}\nFilas:\n"
@@ -101,7 +102,7 @@ def format_csv_as_table(data):
 
 def main():
     # Configuración inicial de Streamlit
-    st.set_page_config(page_title="ChatBot", layout="wide")
+    st.set_page_config(page_title="DataBot", layout="wide")
     st.image("logo.png", width=150)
 
     # Variables de estado
@@ -119,8 +120,8 @@ def main():
         st.session_state["uploaded_file"] = None    
 
     # Configuración del chatbot
-    bot_name = "ChatBot"
-    bot_prompt = f"Eres una IA desarrollada por David Cabrero y te llamas {bot_name}. Respondes y haces lo que te pida el usuario."
+    bot_name = "DataBot"
+    bot_prompt = f"Eres una IA desarrollada por David Cabrero, enfocada a los analistas de datos y te llamas {bot_name}. Respondes y haces lo que te pida el usuario."
     prompt_template = ChatPromptTemplate.from_messages([ 
         ("system", bot_prompt), 
         MessagesPlaceholder(variable_name="chat_history"),
@@ -129,7 +130,7 @@ def main():
     cadena = prompt_template | llm_text
 
     # Barra lateral
-    st.sidebar.title("ChatBot - Menú")
+    st.sidebar.title("DataBot - Menú")
     menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Análisis de Datos"])
     
     # Botón para borrar el historial de chat y dejar vacio la sección de los mensajes
@@ -188,7 +189,7 @@ def main():
                 respuesta = ""
                 current_history = summarize_chat_history(st.session_state["chat_history"])
 
-                csv_table = format_csv_as_table(st.session_state["csv_data"])
+                csv_table = format_data(st.session_state["csv_data"])
                 user_input_csv_prompt = f"Con estos datos:\n{csv_table}\nresponde a esta pregunta: {user_input_csv}"
                 respuesta = cadena.invoke({"user_input": user_input_csv_prompt, "chat_history": current_history})
 
