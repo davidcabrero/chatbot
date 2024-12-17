@@ -3,7 +3,8 @@ langchain-ollama
 streamlit
 matplot
 pandas
-gtts
 torch
+gtts
 plotly
 fpdf
+pymupdf
