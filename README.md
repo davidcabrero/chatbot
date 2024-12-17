@@ -38,3 +38,6 @@ Crea tareas y asígnalas a personas con fecha de vencimiento, pregúntale al cha
 
 ### 8. **Escucha las respuestas**
 Puedes reproducir en audio las respuestas del chatbot.
+
+### 9. **Genera PDFs**
+Descarga la repuesta de DataBot en un pdf.
