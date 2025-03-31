@@ -41,3 +41,17 @@ Puedes reproducir en audio las respuestas del chatbot.
 
 ### 9. **Genera PDFs**
 Descarga la repuesta de DataBot en un pdf.
+
+#### **(Próximamente)**
+
+### 10. **Búsqueda en Internet**
+Haz tus preguntas con búsqueda en la web.
+
+### 11.. **Tools**
+Herramientas de análisis de sentimiento, procesamiento de textos y detección de lenguaje, textos y similitudes...
+
+### 12. **Scraping Web**
+Haz preguntas sobre una web.
+
+### 13. **Agentes**
+Agentes IA especializados en diferentes ámbitos.
