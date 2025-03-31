@@ -42,7 +42,7 @@ Puedes reproducir en audio las respuestas del chatbot.
 ### 9. **Genera PDFs**
 Descarga la repuesta de DataBot en un pdf.
 
-#### **(Próximamente)**
+### **(Próximamente)**
 
 ### 10. **Búsqueda en Internet**
 Haz tus preguntas con búsqueda en la web.
