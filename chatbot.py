@@ -165,7 +165,7 @@ def main():
 
     # Barra lateral
     st.sidebar.title("DataBot - Menú")
-    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Análisis de Datos", "DataAgents", "Tools", "Web Scraping"])
+    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Análisis de Datos", "Tools", "Web Scraping"])
 
     # Botón para borrar el historial de chat y dejar vacio la sección de los mensajes
     if st.sidebar.button("Borrar historial"):
@@ -277,28 +277,6 @@ def main():
 
     elif menu == "DataAgents":
         st.markdown("## DataAgents")
-        #Elige agente
-        agente = st.selectbox("Selecciona un agente", ["CodeAgent", "WriteAgent", "TranslateAgent"])
-        if agente == "CodeAgent":
-            st.markdown("### Agente de Programación")
-            user_input_code = st.text_area("Escribe tu pregunta sobre programación")
-            if st.button("Preguntar"):
-                respuesta_code = agentes.agente_programador(user_input_code)
-                st.write(f"Respuesta: {respuesta_code}")
-
-        elif agente == "WriteAgent":
-            st.markdown("### Agente de Escritura")
-            user_input_write = st.text_area("Escribe tu pregunta sobre escritura")
-            if st.button("Preguntar"):
-                respuesta_write = agentes.agente_escritura(user_input_write)
-                st.write(f"Respuesta: {respuesta_write}")
-                
-        elif agente == "TranslateAgent":
-            st.markdown("### Agente de Traducción")
-            user_input_translate = st.text_area("Escribe el texto a traducir")
-            if st.button("Traducir"):
-                respuesta_translate = agentes.agente_traduccion(user_input_translate)
-                st.write(f"Respuesta: {respuesta_translate}")                 
 
     elif menu == "Chat":
 
@@ -321,7 +299,7 @@ def main():
                 st.session_state["user_input"] = "Genera una imagen de un gato" 
         with col6:
             if st.button("Tareas activas"):
-                st.session_state["user_input"] = "Tareas activas"                
+                st.session_state["user_input"] = "Tareas activas"                        
 
         st.markdown("### Subir Archivos")
         col1, col2 = st.columns(2)
@@ -331,6 +309,10 @@ def main():
             uploaded_image = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"], key="uploaded_image")
         if st.session_state["uploaded_file"] and not uploaded_file:
            st.write("Has eliminado el archivo subido.")
+
+        use_agent = st.checkbox("Usar Agente")
+        if use_agent:
+            agente = st.selectbox("Selecciona un agente", ["CodeAgent", "WriteAgent", "TranslateAgent", "DataGenAgent"])
 
         # Procesar archivos subidos   
         if uploaded_pdf:
@@ -367,20 +349,38 @@ def main():
                     snippet = item.get("snippet", "Sin descripción")
                     results_str += f"{i}. **{title}**\n   {link}\n   _{snippet}_\n\n"
                 
-                respuesta = f"Resultados de la búsqueda:\n{results_str}"
+                respuesta = f"Resultados de la búsqueda:\n{results_str}"  
         
             # Preguntas con archivos
-            if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
+            elif "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
                 respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
                 respuesta = respuesta_imagen.get("message", {}).get("content", "No se pudo procesar la imagen.")
             elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
-                user_input_pdf = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
-                respuesta = cadena.invoke({"user_input": user_input_pdf, "chat_history": st.session_state["chat_history"]})
+                user_input = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
+                if not use_agent:
+                    respuesta = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
             elif "genera una imagen de" in user_input.lower():
                 prompt_image = user_input.lower().replace("genera una imagen de", "").strip()
                 image = generate_image(prompt_image)
                 st.image(image, caption=f"Imagen generada: {prompt_image}", use_container_width=True)
                 respuesta = f"He generado una imagen para: {prompt_image}"
+
+            elif use_agent:
+                if agente == "CodeAgent":
+                    respuesta = agentes.agente_programador(user_input)
+                elif agente == "WriteAgent":
+                    respuesta = agentes.agente_escritor(user_input)
+                elif agente == "TranslateAgent":
+                    respuesta = agentes.agente_traductor(user_input)
+                elif agente == "DataGenAgent":
+                    respuesta = agentes.agente_datos(user_input)
+            
+                # Asegurartse de que el resultado sea una cadena de texto
+                if isinstance(respuesta, dict) and "output" in respuesta:
+                    respuesta = respuesta["output"]  # Extraer el texto del resultado
+                else:
+                    respuesta = str(respuesta)  
+
 
             # Detectar si el usuario pidió un gráfico y especificó datos
             elif "gráfico" in user_input.lower():
