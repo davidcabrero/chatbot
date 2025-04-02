@@ -1,6 +1,9 @@
 from crewai import Agent, Task, Crew, LLM
 from crewai_tools import ScrapeWebsiteTool
 import ollama
+import csv
+import io
+from flask import send_file
 
 llm = LLM(
         model="ollama/llama3.2:1b",
@@ -47,7 +50,7 @@ def agente_programador(pregunta):
     # Definir el agente programador
     programador = Agent(
         role="Experto en programación",
-        goal="Resuelves este problema de programación: {pregunta} con código y escribes código de clalidad, dando al usuario la respuesta con código en cualquier lenguaje.",
+        goal="Haces con código el programa que pide el usuario: {pregunta}. Escribes todo el código.",
         backstory="Eres un agente experto en programación que escribes código en todos los lenguajes.",
         allow_delegation=False,
         verbose=True,
@@ -57,9 +60,8 @@ def agente_programador(pregunta):
     # Definir la tarea
     tarea = Task(
         description=
-            "Revisas el código para que sea lo más limpio posible. \n"
-            "Aseguras que el formato del código sea correcto y se vea claro\n",
-        expected_output="Código del programa correcto.",
+            "Revisas el código para que sea lo más limpio posible.",
+        expected_output="Código del programa.",
         agent=programador
     )
 
@@ -132,6 +134,39 @@ def agente_traductor(pregunta):
 
     result = crew.kickoff(inputs={"pregunta": pregunta})
     return result
+
+# Agente para generar Datos
+def agente_datos(pregunta):
+
+    # Definir el agente generador de datos
+    generador_datos = Agent(
+        role="Experto generador de datos",
+        goal="Generas datos sintéticos para {pregunta}.",
+        backstory="Eres un agente que genera datos sintéticos.",
+        allow_delegation=False,
+        verbose=True,
+        llm=llm,
+    )
+
+    # Definir la tarea
+    tarea = Task(
+        description=
+            "Los datos generados deben guardarse en un csv. \n"
+            "Generas un csv con los datos generados\n",
+        expected_output="Archivo .csv",
+        agent=generador_datos
+    )
+
+    crew = Crew(
+        agents=[generador_datos],
+        tasks=[tarea],
+        verbose=True
+    )
+
+    # Ejecutar la tarea
+    file = crew.kickoff(inputs={"pregunta": pregunta})
+
+    return file
 
 # Agente Uso internet en Chatbot
 def agente_internet(pregunta):
