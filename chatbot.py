@@ -8,7 +8,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
-import fitz  # PyMuPDF
+import fitz  # PyMuPDF 
 from PIL import Image
 import tempfile
 from gtts import gTTS  # Para la generación de voz
@@ -16,6 +16,19 @@ from diffusers import StableDiffusionPipeline
 import torch
 import plotly.express as px
 from fpdf import FPDF
+from spacy import displacy
+import spacy
+from textblob import TextBlob
+from gensim.models import Word2Vec
+import nltk
+from nltk.tokenize import word_tokenize
+import agentes
+import os
+
+# Descargar datos de nltk si no están ya descargados
+nltk.download('punkt')
+
+spacy_model = spacy.load("en_core_web_sm")
 
 # Configuración del modelo de lenguaje
 llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
@@ -86,7 +99,7 @@ def load_image_model():
 # Función para generar una imagen
 def generate_image(prompt):
     sd_model = load_image_model()
-    with torch.no_grad():  # Desactivar gradientes para inferencia
+    with torch.no_grad():  # Desactivar gradientes para inferencia (aumenta velocidad)
         with torch.cuda.amp.autocast():  # Precisión mixta
             with st.spinner("Generando imagen..."):
                 image = sd_model(prompt).images[0]
@@ -108,6 +121,18 @@ def generate_pdf(text, filename="respuesta.pdf"):
     pdf.set_font("Arial", size=12)
     pdf.multi_cell(0, 10, text)
     pdf.output(filename)
+
+# Funciones adicionales usando Spacy, TextBlob, Gensim, NLTK, y CrewAI
+def sentiment_analysis(text):
+    blob = TextBlob(text)
+    return blob.sentiment
+
+def tokenize_text(text):
+    return word_tokenize(text)
+
+def named_entity_recognition(text):
+    doc = spacy_model(text)
+    return [(ent.text, ent.label_) for ent in doc.ents]
 
 def main():
     # Configuración inicial de Streamlit
@@ -140,8 +165,8 @@ def main():
 
     # Barra lateral
     st.sidebar.title("DataBot - Menú")
-    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Análisis de Datos"])
-    
+    menu = st.sidebar.selectbox("Selecciona una funcionalidad", ["Chat", "Gestión de Tareas", "Análisis de Datos", "DataAgents", "Tools", "Web Scraping"])
+
     # Botón para borrar el historial de chat y dejar vacio la sección de los mensajes
     if st.sidebar.button("Borrar historial"):
         st.session_state["chat_history"] = []
@@ -218,7 +243,62 @@ def main():
             for mensaje in st.session_state["chat_history"]:
                 role = "Usuario" if isinstance(mensaje, HumanMessage) else bot_name
                 with st.chat_message(role):
-                    st.write(mensaje.content)
+                    st.write(mensaje.content)              
+
+    elif menu == "Tools":
+        st.markdown("## Procesamiento de Lenguaje Natural")
+        user_input_nlp = st.text_area("Escribe tu texto aquí")
+
+        if st.button("Análisis de Sentimiento"):
+            sentiment = sentiment_analysis(user_input_nlp)
+            st.write(f"Análisis de Sentimiento: {sentiment}")
+
+        if st.button("Tokenizar Texto"):
+            tokens = tokenize_text(user_input_nlp)
+            st.write(f"Tokens: {tokens}")
+
+        if st.button("Reconocimiento de Entidades Nombradas"):
+            entities = named_entity_recognition(user_input_nlp)
+            st.write(f"Entidades Nombradas: {entities}")
+
+    elif menu == "Web Scraping":
+        st.markdown("## Web Scraping")
+        
+        pregunta = st.text_input("Introduce tu pregunta:")
+        url = st.text_input("Introduce la URL de la página a analizar:")
+        
+        if st.button("Ejecutar Web Scraping"):
+            if pregunta and url:
+                resultados = agentes.web_scraping_tool(pregunta, url)
+                st.write("### Resultados del scraping:")
+                st.text(resultados)
+            else:
+                st.warning("Por favor, introduce una pregunta y una URL válida.")
+
+    elif menu == "DataAgents":
+        st.markdown("## DataAgents")
+        #Elige agente
+        agente = st.selectbox("Selecciona un agente", ["CodeAgent", "WriteAgent", "TranslateAgent"])
+        if agente == "CodeAgent":
+            st.markdown("### Agente de Programación")
+            user_input_code = st.text_area("Escribe tu pregunta sobre programación")
+            if st.button("Preguntar"):
+                respuesta_code = agentes.agente_programador(user_input_code)
+                st.write(f"Respuesta: {respuesta_code}")
+
+        elif agente == "WriteAgent":
+            st.markdown("### Agente de Escritura")
+            user_input_write = st.text_area("Escribe tu pregunta sobre escritura")
+            if st.button("Preguntar"):
+                respuesta_write = agentes.agente_escritura(user_input_write)
+                st.write(f"Respuesta: {respuesta_write}")
+                
+        elif agente == "TranslateAgent":
+            st.markdown("### Agente de Traducción")
+            user_input_translate = st.text_area("Escribe el texto a traducir")
+            if st.button("Traducir"):
+                respuesta_translate = agentes.agente_traduccion(user_input_translate)
+                st.write(f"Respuesta: {respuesta_translate}")                 
 
     elif menu == "Chat":
 
@@ -268,10 +348,27 @@ def main():
 
         user_input = st.text_input("Escribe tu pregunta", key="user_input")
 
+        use_internet = st.checkbox("Usar búsqueda en internet para esta pregunta")
+
         if st.button("Preguntar"):
 
             respuesta = ""
 
+            # Preguntas con búsqueda en internet
+            if use_internet:
+                st.write("Realizando búsqueda en internet...")
+                search_results = agentes.internet_search_tool(user_input)
+                
+                # Formatear los resultados de la búsqueda para mostrarlos de manera más legible
+                results_str = ""
+                for i, item in enumerate(search_results, start=1):
+                    title = item.get("title", "Sin título")
+                    link = item.get("url", "Sin enlace")
+                    snippet = item.get("snippet", "Sin descripción")
+                    results_str += f"{i}. **{title}**\n   {link}\n   _{snippet}_\n\n"
+                
+                respuesta = f"Resultados de la búsqueda:\n{results_str}"
+        
             # Preguntas con archivos
             if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
                 respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
@@ -325,7 +422,7 @@ def main():
                     respuesta = "No hay tareas activas."
             else:
                 respuesta = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
-            
+
             # Agregar al historial
             st.session_state["chat_history"].append(HumanMessage(content=user_input))
             st.session_state["chat_history"].append(AIMessage(content=respuesta))
