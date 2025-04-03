@@ -26,7 +26,7 @@ import agentes
 import os
 
 # Descargar datos de nltk si no están ya descargados
-nltk.download('punkt')
+#nltk.download('punkt')
 
 spacy_model = spacy.load("en_core_web_sm")
 
@@ -275,9 +275,6 @@ def main():
             else:
                 st.warning("Por favor, introduce una pregunta y una URL válida.")
 
-    elif menu == "DataAgents":
-        st.markdown("## DataAgents")
-
     elif menu == "Chat":
 
         st.markdown("### Preguntas Sugeridas")
@@ -310,9 +307,18 @@ def main():
         if st.session_state["uploaded_file"] and not uploaded_file:
            st.write("Has eliminado el archivo subido.")
 
-        use_agent = st.checkbox("Usar Agente")
+        # Uso de Agentes
+        use_agent = st.checkbox("Usar Agente", key="use_agent")
         if use_agent:
-            agente = st.selectbox("Selecciona un agente", ["CodeAgent", "WriteAgent", "TranslateAgent", "DataGenAgent"])
+            agente = st.selectbox("Selecciona un agente", ["CodeAgent", "WriteAgent", "TranslateAgent", "DataGenAgent", "DataExtractionAgent", "SearchAgent"])
+        
+        # Si se activa/desactiva el checkbox, borra el historial
+        if "last_use_agent_state" not in st.session_state:
+            st.session_state["last_use_agent_state"] = use_agent
+        
+        if use_agent != st.session_state["last_use_agent_state"]:
+            st.session_state["chat_history"] = []  # Borra el historial
+            st.session_state["last_use_agent_state"] = use_agent
 
         # Procesar archivos subidos   
         if uploaded_pdf:
@@ -330,32 +336,15 @@ def main():
 
         user_input = st.text_input("Escribe tu pregunta", key="user_input")
 
-        use_internet = st.checkbox("Usar búsqueda en internet para esta pregunta")
-
         if st.button("Preguntar"):
 
             respuesta = ""
-
-            # Preguntas con búsqueda en internet
-            if use_internet:
-                st.write("Realizando búsqueda en internet...")
-                search_results = agentes.internet_search_tool(user_input)
-                
-                # Formatear los resultados de la búsqueda para mostrarlos de manera más legible
-                results_str = ""
-                for i, item in enumerate(search_results, start=1):
-                    title = item.get("title", "Sin título")
-                    link = item.get("url", "Sin enlace")
-                    snippet = item.get("snippet", "Sin descripción")
-                    results_str += f"{i}. **{title}**\n   {link}\n   _{snippet}_\n\n"
-                
-                respuesta = f"Resultados de la búsqueda:\n{results_str}"  
         
             # Preguntas con archivos
-            elif "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
+            if "uploaded_image_path" in st.session_state and st.session_state["uploaded_image_path"]:
                 respuesta_imagen = consultaImagen(st.session_state["uploaded_image_path"], user_input)
                 respuesta = respuesta_imagen.get("message", {}).get("content", "No se pudo procesar la imagen.")
-            elif "pdf_text" in st.session_state and st.session_state["pdf_text"]:
+            elif "pdf_text" in st.session_state and st.session_state["pdf_text"] and agente != "DataExtractionAgent":
                 user_input = f"Texto: {st.session_state['pdf_text']}\nPregunta: {user_input}"
                 if not use_agent:
                     respuesta = cadena.invoke({"user_input": user_input, "chat_history": st.session_state["chat_history"]})
@@ -374,6 +363,13 @@ def main():
                     respuesta = agentes.agente_traductor(user_input)
                 elif agente == "DataGenAgent":
                     respuesta = agentes.agente_datos(user_input)
+                elif agente == "DataExtractionAgent":
+                    if "pdf_text" in st.session_state and st.session_state["pdf_text"]:
+                        respuesta = agentes.agente_extraccion_documentos(user_input, st.session_state["pdf_text"])   
+                    else:
+                        respuesta = "Por favor, sube un archivo PDF para poder extraer información."
+                elif agente == "SearchAgent":
+                    respuesta = agentes.agente_internet(user_input)
             
                 # Asegurartse de que el resultado sea una cadena de texto
                 if isinstance(respuesta, dict) and "output" in respuesta:
