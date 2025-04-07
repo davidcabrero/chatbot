@@ -8,3 +8,9 @@ gtts
 plotly
 fpdf
 pymupdf
+spacy
+googlesearch-python
+crewai
+crewai-tools
+textblob
+gensim
