@@ -28,7 +28,7 @@ import os
 # Descargar datos de nltk si no están ya descargados
 #nltk.download('punkt')
 
-spacy_model = spacy.load("en_core_web_sm")
+spacy_model = spacy.load("es_core_news_sm")
 
 # Configuración del modelo de lenguaje
 llm_text = OllamaLLM(model="llama3.2:1b", temperature=0.2)
@@ -249,17 +249,21 @@ def main():
         st.markdown("## Procesamiento de Lenguaje Natural")
         user_input_nlp = st.text_area("Escribe tu texto aquí")
 
-        if st.button("Análisis de Sentimiento"):
-            sentiment = sentiment_analysis(user_input_nlp)
-            st.write(f"Análisis de Sentimiento: {sentiment}")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Análizar Sentimiento"):
+                sentiment = sentiment_analysis(user_input_nlp)
+                st.write(f"Sentimiento: {sentiment}")
 
-        if st.button("Tokenizar Texto"):
-            tokens = tokenize_text(user_input_nlp)
-            st.write(f"Tokens: {tokens}")
-
-        if st.button("Reconocimiento de Entidades Nombradas"):
-            entities = named_entity_recognition(user_input_nlp)
-            st.write(f"Entidades Nombradas: {entities}")
+        with col2:
+            if st.button("Corregir Texto"):
+                texto = TextBlob(user_input_nlp)
+                st.write(f"Texto Corregido: {texto}")
+            
+        with col3:    
+            if st.button("Reconocer Entidades"):
+                entities = named_entity_recognition(user_input_nlp)
+                st.write(f"Entidades Nombradas: {entities}")
 
     elif menu == "Web Scraping":
         st.markdown("## Web Scraping")
@@ -310,7 +314,7 @@ def main():
         # Uso de Agentes
         use_agent = st.checkbox("Usar Agente", key="use_agent")
         if use_agent:
-            agente = st.selectbox("Selecciona un agente", ["CodeAgent", "WriteAgent", "TranslateAgent", "DataGenAgent", "DataExtractionAgent", "SearchAgent"])
+            agente = st.selectbox("Selecciona un agente", ["CodeAgent", "WriteAgent", "TranslateAgent", "DataGenAgent", "DataExtractionAgent", "MathsAgent", "SearchAgent"])
         
         # Si se activa/desactiva el checkbox, borra el historial
         if "last_use_agent_state" not in st.session_state:
@@ -370,6 +374,8 @@ def main():
                         respuesta = "Por favor, sube un archivo PDF para poder extraer información."
                 elif agente == "SearchAgent":
                     respuesta = agentes.agente_internet(user_input)
+                elif agente == "MathsAgent":
+                    respuesta = agentes.agente_matematico(user_input)    
             
                 # Asegurartse de que el resultado sea una cadena de texto
                 if isinstance(respuesta, dict) and "output" in respuesta:
