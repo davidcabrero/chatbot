@@ -1,16 +1,25 @@
 from crewai import Agent, Task, Crew, LLM
 from crewai_tools import ScrapeWebsiteTool
+from crewai_tools import FileWriterTool
 import ollama
 import csv
 import io
 from flask import send_file
 from googlesearch import search
 
-llm = LLM(
+# Para ejecutar los agentes con el modelo local
+llm_local = LLM(
         model="ollama/llama3.2:1b",
         temperature = 0.5,
         base_url="http://127.0.0.1:11434",
     )
+# Para ejecutar los agentes con la api de groq
+llm = LLM(
+    model= "groq/gemma2-9b-it",
+    temperature = 0.5,
+    base_url="https://api.groq.com/openai/v1",
+        api_key="API_KEY"
+)
 
 # Agente de web scraping
 def web_scraping_tool(pregunta, url):
@@ -143,8 +152,10 @@ def agente_datos(pregunta):
     # Definir el agente generador de datos
     generador_datos = Agent(
         role="Experto generador de datos",
-        goal="Generas datos sintéticos para {pregunta}.",
-        backstory="Eres un agente que genera datos sintéticos.",
+        goal="Generas datos sintéticos para {pregunta} realistas para un csv."
+             "Debes dar al menos 50 filas de datos sintéticos y mínimo 5 columnas."
+             "Utilizas markdown para dar formato a los datos y que se vean claros.",
+        backstory="Eres un agente que genera datos sintéticos aleatorios sobre cualquier tema.",
         allow_delegation=False,
         verbose=True,
         llm=llm,
@@ -153,9 +164,8 @@ def agente_datos(pregunta):
     # Definir la tarea
     tarea = Task(
         description=
-            "Los datos generados deben guardarse en un csv. \n"
-            "Generas un csv con los datos generados\n",
-        expected_output="Archivo .csv",
+            "Revisas los datos y aseguras que se dan al menos 50 filas de datos con un formato markdown claro.\n",
+        expected_output="Datos generados",
         agent=generador_datos
     )
 
@@ -166,9 +176,9 @@ def agente_datos(pregunta):
     )
 
     # Ejecutar la tarea
-    file = crew.kickoff(inputs={"pregunta": pregunta})
+    result = crew.kickoff(inputs={"pregunta": pregunta})
 
-    return file
+    return result
 
 def agente_extraccion_documentos(pregunta, contenido):
     
@@ -218,5 +228,33 @@ def agente_internet(pregunta):
     
     crew = Crew(agents=[investigador], tasks=[tarea])
     result = crew.kickoff(inputs={"pregunta": pregunta, "contexto": texto_resultados})
+    return result
+
+def agente_matematico(pregunta):
+    # Definir el agente matemático
+    matematico = Agent(
+        role="Experto matemático",
+        goal="Resuelves problemas matemáticos y explicas los pasos: {pregunta}.",
+        backstory="Eres un agente experto en matemáticas que resuelve problemas y explica los pasos.",
+        allow_delegation=False,
+        verbose=True,
+        llm=llm,
+    )
+
+    # Definir la tarea
+    tarea = Task(
+        description=
+            "Revisas los cálculos y explicas cada paso de forma clara.",
+        expected_output="Respuesta detallada con pasos explicativos.",
+        agent=matematico
+    )
+
+    crew = Crew(
+        agents=[matematico],
+        tasks=[tarea],
+        verbose=True
+    )
+
+    result = crew.kickoff(inputs={"pregunta": pregunta})
     return result
 
